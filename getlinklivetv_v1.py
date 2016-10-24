@@ -1,7 +1,5 @@
 import urllib
 import json
-import requests
-import sys
 from urlparse import urlsplit
 from urlparse import urlparse
 import os

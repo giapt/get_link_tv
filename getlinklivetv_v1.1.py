@@ -1,7 +1,6 @@
 from urlparse import urlsplit
 from urlparse import urlparse
 import urllib
-import os
 from bs4 import BeautifulSoup
 
 r = urllib.urlopen('http://htvonline.com.vn/livetv').read()
@@ -18,9 +17,6 @@ for tag in divTag:
           list_link.append(tag.get('href'))
           pass
 
-
-
-# print list_link
 def write():
     print('Creating new text file')
 
@@ -33,22 +29,21 @@ def write():
         for x in xrange(1,length):
           print x
           print list_link[x]
-          r2 = urllib.urlopen(list_link[x]).read()
-          soup2 = BeautifulSoup(r)
-          divTag2 = soup2.find_all("div", id="play_video")
+          r_child = urllib.urlopen(list_link[x]).read()
+          soup_child = BeautifulSoup(r_child)
+          divTag2 = soup_child.find_all("div", id="play_video")
           result = divTag2[0].get('data-source')
           print result
           if result is not None:
             url_parts = urlparse(result)
             path_parts = url_parts[2].rpartition('/')
-            file.write("#EXTINF:-1,1,"+os.path.splitext(path_parts[2])[0].upper()
-            + "\n")
+            path_parts = path_parts[0].rpartition('/')
+            path_parts = path_parts[2].rpartition('.')
+            path_parts = path_parts[0].rpartition('.')
+            file.write("#EXTINF:-1,1,"+path_parts[0].upper()+" "+path_parts[2]
+             + "\n")
             file.write(result + "\n\n")
             pass
-          r2 = ""
-          divTag2 = []
-          soup2 = ""
-          result = ""
           pass
 
         file.close()
