@@ -1,65 +1,128 @@
-import mechanize
+import time
+import datetime
 import urllib
 import json
 from bs4 import BeautifulSoup
 import sys
 import re
-import unicodedata
+import os
+reload(sys)
+sys.setdefaultencoding("utf-8")
 
-# reload(sys)
-# sys.setdefaultencoding("utf-8")
-r = urllib.urlopen('http://vtvgo.vn/ajax-get-program-channel?d=20161014&i=1')
+def getDataFromLink(id):
+  params = {'epg_id': str(id), 'type': '2'}
+  url = 'http://vtvgo.vn//get-program-channel?'
+  url = url + urllib.urlencode(params)
+  print "\n===> Get from: ", url
+  htmltext = urllib.urlopen(url).read()
+  j = json.loads(htmltext)
+  print "Resule: ", j["title"]
+  return j
+  pass
 
-# soup = BeautifulSoup(r.read())
-text = r.read()
-start = text.find('<ul') + 28
-end = text.find('<\/ul>')
-# print text[start:end]
-text_sub = text[start:end].decode('string_escape')
-text_sub =  text_sub.replace("\/", "/")
-# print text_sub.encode('utf-8')
-# text_sub = unicodedata.normalize('NFKD', u(text_sub)).encode('ascii','ignore')
-# print text_sub
-# soup = BeautifulSoup(text_sub)
-soup = BeautifulSoup(text_sub.decode('utf-8'))
-# print soup
-p_tags = []
-p_tags = soup.find_all("p", class_ = "title")
-for p_tag in p_tags:
-  content = p_tag.contents[0]
-  print content.encode('utf8')
-# print start
-# print end
-# if m:
-#     found = m.group(1)
-# print found
+def getListChannel():
+  arr = []
+  url = 'http://vtvgo.vn/xem-truc-tuyen.html'
+  htmltext = urllib.urlopen(url).read()
+  soup = BeautifulSoup(htmltext)
+  list_items = soup.find_all("div", class_="item")
+  i = 0
+  for item in list_items:
+    link = {}
+    images = item.find_all("img")
+    link_image = images[0].get("src")
+    path_parts = link_image.rpartition('/')
+    path_parts = path_parts[2].rpartition('.')
+    i += 1
+    link["id"] = path_parts[0]
+    link["image"] = link_image
+    link["channel"] = "VTV" + str(i)
+    arr.append(link)
+    pass
+
+  return arr
+  pass
+
+def getListTime():
+  listTime = []
+  today = datetime.date.today()
+  for x in xrange(1,8):
+    count = datetime.timedelta(days=x)
+    date = today - count
+    day = str(date.day) if date.day > 9 else '0'+str(date.day)
+    s = str(date.year)+str(date.month)+day
+    listTime.append(s)
+    pass
+  return listTime
+  pass
+
+def getLink(day,x):
+  channel_id = list_channels[x]["id"]
+  print "Channel: "+list_channels[x]["channel"] + " day:" + day
+  params = {'d': day, 'i': channel_id}
+  url = 'http://vtvgo.vn/ajax-get-program-channel?'
+  url = url + urllib.urlencode(params)
+  text = urllib.urlopen(url).read()
+  start = text.find('<ul') + 28
+  end = text.find('<\/ul>')
+  text_sub = text[start:end].decode('string_escape')
+  text_sub =  text_sub.replace("\/", "/")
+  soup = BeautifulSoup(text_sub.decode('utf-8'))
+  p_tags = []
+  p_tags = soup.find_all("li", class_ = "select_program")
+  timestop = day + "235900"
+  for p_tag in reversed(p_tags):#reversed array p_tags to get stop time
+    epgid = p_tag.get("data-epgid")
+    result = getDataFromLink(epgid)
+    labels = p_tag.find_all("label")
+    content = labels[0].contents[0]
+    # timestr = "2016-10-14 " + content.encode('ascii','ignore')
+    # timestamps = time.mktime(datetime.datetime.strptime(timestr, "%Y-%m-%d %H:%M").timetuple())
+    time_hm = content.encode('ascii','ignore').rpartition(":")
+    result["start"] = day + time_hm[0] + time_hm[2] +"00"
+    result["stop"] = timestop
+    timestop = result["start"]
+    result["channel"] = list_channels[x]["channel"]
+    datas.append(result)
+  pass
+
+def main():
+  listTime = getListTime()
+  print('Creating new xmltv file')
+  name = raw_input('Enter name of xmltv file: ')+'.xmltv'
+  file = open(name,'w')
+  file.write('<?xml version="1.0" encoding="ISO-8859-1"?>\n')
+  file.write('<!DOCTYPE tv SYSTEM "xmltv.dtd">\n')
+  file.write('<tv generator-info-name="get_from_vtv" xmlns:livetv="http://google.com/">\n')
+  for x in xrange(0,9):#0,9
+    file.write('<channel id="'+list_channels[x]["channel"]+'">\n')
+    file.write('<display-name lang="en">'+list_channels[x]["channel"]+'</display-name>\n')
+    file.write('<icon src="'+list_channels[x]["image"]+'"/>\n')
+    file.write('<livetv:stream-url type="application/vnd.rn-realmedia">rtsp://255.255.255.255/channel1.rm</livetv:stream-url>\n')
+    file.write('</channel>\n')
+    for i in xrange(0,7):#0,7
+      getLink(listTime[i],x)
+      pass
+    pass
+
+  for programme in reversed(datas):
+    file.write('<programme start="'+programme["start"]+'" stop="'+programme["stop"]+'" channel="'+programme["channel"]+'">\n')
+    file.write('<title lang="en">'+programme["title"]+'</title>\n')
+    file.write('<desc lang="en">'+programme["desc"]+'</desc>\n')
+    file.write('</programme>\n')
+    pass
+
+  file.write('</tv>\n')
+  # with open('data.txt', 'w') as outfile:
+  #   json.dump(datas, outfile)
+
+datas = []
+list_channels = getListChannel()
+main()
 
 
-# lines = []
-# with open('test.html') as infile:
-#     for line in infile:
-#         print line
-#         print "\n"
-#         print line.replace("\/","")
-#         lines.append(line)
-# lines = repr([x.encode(sys.stdout.encoding) for x in lines]).decode('string-escape')
-# with open('test.html', 'w') as outfile:
-#     for line in lines:
-#         outfile.write(line)
 
-# f = open("test.html")
-# soup = BeautifulSoup(f)
-# print soup
-# list_link = []
-# for tag in soup.find_all("script"):
-#   print tag
-#   if type(tag.get('href')) == str:
-#     list_link.append(tag.get('href'))
-#     pass
 
-# print list_link
-# matching = [s for s in list_link if 'vtv' in s]
-# for link in matching:
-#     print link
-#     print "\n"
+
+
 
