@@ -5,6 +5,8 @@ from urlparse import urlparse
 import os
 from bs4 import BeautifulSoup
 from datetime import datetime
+import Queue
+from threading import Thread
 
 def getListChannel():
   arr = []
@@ -53,44 +55,56 @@ def getLinkWithQuality(x,q):
   return link
   pass
 
-def getlink(x):
-  channel_id = list_channels[x]["id"]
-  params = {'epg_id': channel_id, 'type': '1'}
-  url = 'http://vtvgo.vn//get-program-channel?'
-  url = url + urllib.urlencode(params)
-  print "\n===> Get from: ", url
-  htmltext = urllib.urlopen(url).read()
-  j = json.loads(htmltext)
-  print "Resule: ", j["data"]
+def grab_data_from_queue():
 
-  return j["data"]
-  pass
+    while not q.empty(): # check that the queue isn't empty
+
+        x = q.get() # get the item from the queue
+        result = getLinkWithQuality(x,"high")
+        q.task_done() # specify that you are done with the item
 
 def main():
-    print('Creating new text file')
+  # print('Creating new text file')
 
-    # name = raw_input('Enter name of text file: ')+'.m3u'
+  # add items to the queue
+  for i in range(9):
+    q.put(i)
 
-    try:
-        file = open("test.m3u",'w')
-        file.write("#EXTM3U\n")
-        for x in xrange(0,9):
-          result = getLinkWithQuality(x,"high")
-          if result is not None:
-            url_parts = urlparse(result)
-            path_parts = url_parts[2].rpartition('/')
-            file.write("#EXTINF:0,"+os.path.splitext(path_parts[2])[0].upper()
-            + "\n")
-            file.write(result + "\n\n")
-            pass
-          pass
+  for i in range(9): # aka number of threadtex
+    t1 = Thread(target = grab_data_from_queue) # target is the above function
+    t1.start() # start the thread
 
-        file.close()
+  q.join()
 
-    except Exception,e: print str(e)
-    with open('data.txt', 'w') as outfile:
-      json.dump(list_channels, outfile)
+  # name = raw_input('Enter name of text file: ')+'.m3u'
+
+  # try:
+  #     file = open("test.m3u",'w')
+  #     file.write("#EXTM3U\n")
+  #     for x in xrange(0,9):
+  #       result = getLinkWithQuality(x,"high")
+  #       if result is not None:
+  #         url_parts = urlparse(result)
+  #         path_parts = url_parts[2].rpartition('/')
+  #         file.write("#EXTINF:0,"+os.path.splitext(path_parts[2])[0].upper()
+  #         + "\n")
+  #         file.write(result + "\n\n")
+  #         pass
+  #       pass
+
+  #     file.close()
+
+  # except Exception,e: print str(e)
+  with open('data.txt', 'w') as outfile:
+    json.dump(list_channels, outfile)
+
+
+
 startTime = datetime.now()
+
+# create the instance
+q = Queue.LifoQueue()
+
 list_channels = getListChannel()
 main()
 print datetime.now()-startTime

@@ -9,6 +9,11 @@ import os
 reload(sys)
 sys.setdefaultencoding("utf-8")
 
+# fix lai ver 1 va ver 1.1 theo dinh dang m3u http://xmtvplayer.com/build-m3u-file
+# fix ver 1 get link tu list link doc o html vtv/xem truc tuyen
+# lay ca 3 link chat luong
+# get danh sach cac kenh co the get o 3 trang theo cau truc file list_channel.xml cua thai
+# viet script voi dau vao la high, medu, low, + id_channel lay ra link
 def getDataFromLink(id):
   params = {'epg_id': str(id), 'type': '2'}
   url = 'http://vtvgo.vn//get-program-channel?'
